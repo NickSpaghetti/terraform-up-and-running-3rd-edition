@@ -15,10 +15,10 @@ provider "aws" {
 resource "aws_security_group" "instance" {
   name = "nc-terraform-example"
   ingress {
-    from_port = 8080
-    protocol  = "tcp"
-    to_port   = 8080
-    cidr_blocks=["0.0.0.0/0"]
+    from_port   = var.server_port
+    protocol    = "tcp"
+    to_port     = var.server_port
+    cidr_blocks = ["0.0.0.0/0"]
   }
   tags = {
     Name   = "nc-security-group"
@@ -35,7 +35,7 @@ resource "aws_instance" "example_ec2" {
               echo "Hello, World > index.html
               nohup busybox httpd -f -p 8080 &
   EOF
-  vpc_security_group_ids = [aws_security_group.instance.id]
+  vpc_security_group_ids      = [aws_security_group.instance.id]
   tags = {
     Name   = "nc-ec2-example"
     Source = "terraform-up-and-running-3rd-edition"
