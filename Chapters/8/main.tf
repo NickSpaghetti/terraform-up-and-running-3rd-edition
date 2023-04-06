@@ -58,3 +58,16 @@ resource "aws_dynamodb_table" "terraform_locks" {
     type = "S"
   }
 }
+
+#See pg 263 for deploying kubc in aws EKS
+module "simple_webapp" {
+  source = "modules/services/k8-app"
+  container_port = 5456
+  image = "training/webapp"
+  name = "simple-webapp"
+  replicas = 4
+
+  env_variables = {
+    PROVIDER = "Terraform"
+  }
+}
