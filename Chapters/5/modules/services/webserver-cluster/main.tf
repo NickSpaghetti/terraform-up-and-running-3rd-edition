@@ -12,13 +12,22 @@ provider "aws" {
   region = "us-east-1"
 }
 
+locals {
+  not_found_code = "404"
+  cidr_blocks = ["0.0.0.0/0"]
+  egress_protocol = "-1"
+  ingress_protocol = "tcp"
+  http_port = 80
+  http = "HTTP"
+}
+
 resource "aws_security_group" "instance" {
   name = "nc-terraform-example"
   ingress {
     from_port = var.server_port
-    protocol  = "tcp"
+    protocol  = local.ingress_protocol
     to_port   = var.server_port
-    cidr_blocks=["0.0.0.0/0"]
+    cidr_blocks = local.cidr_blocks
   }
   tags = {
     Name   = "nc-security-group"
@@ -29,9 +38,9 @@ resource "aws_security_group" "instance" {
 #The use of launch configurations is discouraged in favour of launch templates. Read more in the AWS EC2 Documentation.
 resource "aws_launch_configuration" "example_ec2" {
   image_id                    = "ami-0fd2c44049dd805b8"
-  instance_type               = "t2.micro"
+  instance_type               = var.ec2_instance_type
   user_data_replace_on_change = true
-  user_data = templatefile("user-data.sh",{
+  user_data = templatefile("${path.module}/user-data.sh",{
     server_port = var.server_port
     db_address = data.terraform_remote_state.db.outputs.address
     db_port = data.terraform_remote_state.db.outputs.port
@@ -73,36 +82,36 @@ resource "aws_lb" "example_lb" {
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.example_lb.arn
   port = 80
-  protocol = "HTTP"
+  protocol = local.http
   default_action {
     type = "fixed-response"
     fixed_response {
       content_type = "text/plain"
-      message_body = "404: This is not the page you are looking for"
-      status_code = "404"
+      message_body = "${local.cidr_blocks}: This is not the page you are looking for"
+      status_code = local.not_found_code
     }
   }
 }
 
 resource "aws_security_group" "alb" {
-  name = "nc-terraform-example-alb"
+  name = "${var.cluster_name}-instance-nc"
   # Allow inbound HTTP requests
   ingress {
-    from_port = 80
+    from_port = local.http_port
     protocol  = "tcp"
-    to_port   = 80
-    cidr_blocks = ["0.0.0.0/0"]
+    to_port   = local.http_port
+    cidr_blocks = local.cidr_blocks
   }
 }
 
 resource "aws_lb_target_group" "asg" {
   name = "nc-terraform-asg-example"
   port = var.server_port
-  protocol = "HTTP"
+  protocol = local.http
   vpc_id = data.aws_subnet.default.id
   health_check {
     path = "/"
-    protocol = "HTTP"
+    protocol = local.http
     matcher = "200"
     interval = 15
     timeout = 3
